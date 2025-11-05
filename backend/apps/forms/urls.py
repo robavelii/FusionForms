@@ -9,4 +9,5 @@ router.register(r'themes', views.FormThemeViewSet, basename='formtheme')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('public/<uuid:pk>/', views.PublicFormView.as_view(), name='form-public-detail'),
 ]

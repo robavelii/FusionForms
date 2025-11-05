@@ -128,11 +128,23 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
 }
 
+# Custom user model
+AUTH_USER_MODEL = 'accounts.User'
+
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",
     "http://127.0.0.1:8080",
 ]
+CORS_ALLOW_CREDENTIALS = True
+
+# Dev-only convenience
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+]
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Celery settings
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')

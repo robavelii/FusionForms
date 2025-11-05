@@ -1,6 +1,7 @@
 # apps/forms/views.py
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from .models import Form, FormVersion, FormTheme
@@ -74,3 +75,12 @@ class FormThemeViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         return FormTheme.objects.filter(created_by=self.request.user)
+
+
+class PublicFormView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        form = get_object_or_404(Form, pk=pk, status='published')
+        serializer = FormSerializer(form)
+        return Response(serializer.data)
