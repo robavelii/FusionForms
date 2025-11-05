@@ -26,6 +26,10 @@ class FieldAnalytics(models.Model):
     
     class Meta:
         unique_together = ['form_analytics', 'field_id']
+        indexes = [
+            models.Index(fields=['form_analytics', 'field_id']),
+            models.Index(fields=['field_type']),
+        ]
     
     def __str__(self):
         return f"Analytics for field {self.field_id} in {self.form_analytics.form.title}"

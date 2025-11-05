@@ -26,6 +26,12 @@ class Form(models.Model):
 
 	class Meta:
 		ordering = ['-updated_at']
+		indexes = [
+			models.Index(fields=['status']),
+			models.Index(fields=['created_by', 'status']),
+			models.Index(fields=['-updated_at']),
+			models.Index(fields=['published_at']),
+		]
 	def __str__(self) -> str:
 		return self.title
 	

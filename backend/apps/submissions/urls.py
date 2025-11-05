@@ -9,4 +9,5 @@ router.register(r'saved', views.SavedFormViewSet, basename='savedform')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('public/<uuid:form_id>/', views.PublicSubmissionView.as_view(), name='public-submission'),
 ]

@@ -13,4 +13,4 @@ COPY . /app/
 
 EXPOSE 8000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "fusionforms.wsgi:application"]
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "fusionforms.wsgi:application"]

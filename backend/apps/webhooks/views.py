@@ -13,6 +13,7 @@ from .serializers import WebhookSerializer, WebhookLogSerializer
 class WebhookViewSet(viewsets.ModelViewSet):
     serializer_class = WebhookSerializer
     permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = 'webhooks'  # Rate limit webhook operations
     
     def get_queryset(self):
         user = self.request.user

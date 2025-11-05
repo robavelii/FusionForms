@@ -79,8 +79,16 @@ class FormThemeViewSet(viewsets.ModelViewSet):
 
 class PublicFormView(APIView):
     permission_classes = [permissions.AllowAny]
-
+    throttle_scope = 'anon'  # Rate limit public form access
+    
     def get(self, request, pk):
         form = get_object_or_404(Form, pk=pk, status='published')
         serializer = FormSerializer(form)
+        
+        # Track view for analytics
+        from apps.analytics.models import FormAnalytics
+        analytics, _ = FormAnalytics.objects.get_or_create(form=form)
+        analytics.views += 1
+        analytics.save()
+        
         return Response(serializer.data)

@@ -20,6 +20,11 @@ class Webhook(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['form', 'is_active']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['-created_at']),
+        ]
     
     def __str__(self):
         return f"{self.name} for {self.form.title}"
@@ -33,6 +38,11 @@ class WebhookLog(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['webhook', '-created_at']),
+            models.Index(fields=['event_type']),
+            models.Index(fields=['-created_at']),
+        ]
     
     def __str__(self):
         return f"Log for {self.webhook.name} - {self.event_type}"

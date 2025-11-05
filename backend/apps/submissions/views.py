@@ -1,7 +1,8 @@
 # apps/submissions/views.py
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, exceptions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, QuerySet
 from .models import Submission, SavedForm
@@ -12,10 +13,13 @@ from apps.webhooks.tasks import process_webhook
 from jsonschema import validate as jsonschema_validate, ValidationError
 import csv
 from django.http import HttpResponse
+import os
+import requests
 
 class SubmissionViewSet(viewsets.ModelViewSet):
     serializer_class = SubmissionSerializer
     permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = 'submissions'
     
     def get_queryset(self) -> QuerySet[Submission]:  # type: ignore[override]
         user = self.request.user
@@ -28,6 +32,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         form_id = self.request.data.get('form')
         form = get_object_or_404(Form, id=form_id)
+        
         # Validate against schema if provided
         schema = form.schema.get('jsonSchema') or form.schema.get('schema') or None
         if schema:
@@ -36,7 +41,24 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             except ValidationError as exc:
                 raise exceptions.ValidationError({'data': f'Invalid data: {exc.message}'})
 
+        # Optional reCAPTCHA verification
+        recaptcha_secret = os.getenv('RECAPTCHA_SECRET')
+        recaptcha_token = self.request.data.get('recaptchaToken')
+        if recaptcha_secret:
+            if not recaptcha_token:
+                raise exceptions.ValidationError({'recaptchaToken': 'Missing reCAPTCHA token'})
+            try:
+                verify_resp = requests.post(
+                    'https://www.google.com/recaptcha/api/siteverify',
+                    data={'secret': recaptcha_secret, 'response': recaptcha_token}, timeout=5
+                ).json()
+                if not verify_resp.get('success'):
+                    raise exceptions.ValidationError({'recaptcha': 'Verification failed'})
+            except Exception:
+                raise exceptions.ValidationError({'recaptcha': 'Verification error'})
+
         submission = serializer.save(
+            form=form,
             ip_address=self.request.META.get('REMOTE_ADDR'),
             user_agent=self.request.META.get('HTTP_USER_AGENT', ''),
         )
@@ -71,6 +93,58 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             return response
         else:
             return Response({'error': 'Unsupported format'}, status=status.HTTP_400_BAD_REQUEST)
+
+class PublicSubmissionView(APIView):
+    """Public endpoint for submitting forms (no auth required)"""
+    permission_classes = [permissions.AllowAny]
+    throttle_scope = 'submissions'
+    
+    def post(self, request, form_id):
+        form = get_object_or_404(Form, id=form_id, status='published')
+        
+        # Validate against schema
+        schema = form.schema.get('jsonSchema') or form.schema.get('schema') or None
+        if schema:
+            try:
+                jsonschema_validate(instance=request.data.get('data', {}), schema=schema)
+            except ValidationError as exc:
+                raise exceptions.ValidationError({'data': f'Invalid data: {exc.message}'})
+        
+        # Optional reCAPTCHA verification
+        recaptcha_secret = os.getenv('RECAPTCHA_SECRET')
+        recaptcha_token = request.data.get('recaptchaToken')
+        if recaptcha_secret and recaptcha_token:
+            try:
+                verify_resp = requests.post(
+                    'https://www.google.com/recaptcha/api/siteverify',
+                    data={'secret': recaptcha_secret, 'response': recaptcha_token}, timeout=5
+                ).json()
+                if not verify_resp.get('success'):
+                    raise exceptions.ValidationError({'recaptcha': 'Verification failed'})
+            except Exception:
+                raise exceptions.ValidationError({'recaptcha': 'Verification error'})
+        
+        # Create submission
+        submission = Submission.objects.create(
+            form=form,
+            data=request.data.get('data', {}),
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+        )
+        
+        # Update analytics
+        analytics, _ = FormAnalytics.objects.get_or_create(form=form)
+        analytics.submissions += 1
+        analytics.save()
+        
+        # Fire webhooks asynchronously
+        process_webhook.delay(str(form.id), 'submission.created', SubmissionSerializer(submission).data)
+        
+        return Response({
+            'status': 'success',
+            'submission_id': str(submission.id)
+        }, status=status.HTTP_201_CREATED)
+
 
 class SavedFormViewSet(viewsets.ModelViewSet):
     serializer_class = SavedFormSerializer
