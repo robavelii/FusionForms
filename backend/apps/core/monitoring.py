@@ -1,12 +1,13 @@
 # apps/core/monitoring.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, permissions
 from django.core.cache import cache
 from django.db import connection
 from django.db.models import Count
 from django.utils import timezone
 from datetime import timedelta
+from drf_spectacular.utils import extend_schema
 from apps.forms.models import Form
 from apps.submissions.models import Submission
 import logging
@@ -14,9 +15,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(tags=['Health Checks'])
 class MetricsView(APIView):
     """Endpoint to expose application metrics for monitoring"""
-    permission_classes = []  # Make this protected in production
+    permission_classes = [permissions.IsAuthenticated]  # Protected - requires authentication
     
     def get(self, request):
         metrics = {

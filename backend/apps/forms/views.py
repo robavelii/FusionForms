@@ -4,9 +4,18 @@ from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from .models import Form, FormVersion, FormTheme
 from .serializers import FormSerializer, FormVersionSerializer, FormThemeSerializer
 
+@extend_schema_view(
+    list=extend_schema(tags=['Forms']),
+    create=extend_schema(tags=['Forms']),
+    retrieve=extend_schema(tags=['Forms']),
+    update=extend_schema(tags=['Forms']),
+    partial_update=extend_schema(tags=['Forms']),
+    destroy=extend_schema(tags=['Forms']),
+)
 class FormViewSet(viewsets.ModelViewSet):
     serializer_class = FormSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -14,6 +23,7 @@ class FormViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Form.objects.filter(created_by=self.request.user)
     
+    @extend_schema(tags=['Forms'])
     @action(detail=True, methods=['post'])
     def publish(self, request, pk=None):
         form = self.get_object()
@@ -33,6 +43,7 @@ class FormViewSet(viewsets.ModelViewSet):
         
         return Response({'status': 'form published'})
     
+    @extend_schema(tags=['Forms'])
     @action(detail=True, methods=['post'])
     def duplicate(self, request, pk=None):
         original_form = self.get_object()
@@ -45,6 +56,7 @@ class FormViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(new_form)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
+    @extend_schema(tags=['Forms'])
     @action(detail=True, methods=['get'])
     def versions(self, request, pk=None):
         form = self.get_object()
@@ -52,6 +64,7 @@ class FormViewSet(viewsets.ModelViewSet):
         serializer = FormVersionSerializer(versions, many=True)
         return Response(serializer.data)
     
+    @extend_schema(tags=['Forms'])
     @action(detail=True, methods=['post'])
     def restore_version(self, request, pk=None):
         form = self.get_object()
@@ -69,6 +82,14 @@ class FormViewSet(viewsets.ModelViewSet):
         
         return Response({'status': 'form restored from version'})
 
+@extend_schema_view(
+    list=extend_schema(tags=['Forms']),
+    create=extend_schema(tags=['Forms']),
+    retrieve=extend_schema(tags=['Forms']),
+    update=extend_schema(tags=['Forms']),
+    partial_update=extend_schema(tags=['Forms']),
+    destroy=extend_schema(tags=['Forms']),
+)
 class FormThemeViewSet(viewsets.ModelViewSet):
     serializer_class = FormThemeSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -77,6 +98,7 @@ class FormThemeViewSet(viewsets.ModelViewSet):
         return FormTheme.objects.filter(created_by=self.request.user)
 
 
+@extend_schema(tags=['Forms'])
 class PublicFormView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_scope = 'anon'  # Rate limit public form access

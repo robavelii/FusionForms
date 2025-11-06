@@ -5,12 +5,14 @@ from rest_framework import status
 from django.db import connection
 from django.core.cache import cache
 from django.conf import settings
+from drf_spectacular.utils import extend_schema
 import redis
 import logging
 
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(tags=['Health Checks'])
 class HealthCheckView(APIView):
     """Health check endpoint for load balancers and monitoring"""
     permission_classes = []
@@ -22,6 +24,7 @@ class HealthCheckView(APIView):
         })
 
 
+@extend_schema(tags=['Health Checks'])
 class ReadinessCheckView(APIView):
     """Readiness check - verifies all dependencies are available"""
     permission_classes = []
@@ -77,6 +80,7 @@ class ReadinessCheckView(APIView):
         }, status=status.HTTP_200_OK if all_healthy else status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
+@extend_schema(tags=['Health Checks'])
 class LivenessCheckView(APIView):
     """Liveness check - simple endpoint to verify service is running"""
     permission_classes = []

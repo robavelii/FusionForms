@@ -3,6 +3,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema, extend_schema_view
 import requests
 import json
 import hmac
@@ -10,6 +11,14 @@ import hashlib
 from .models import Webhook, WebhookLog
 from .serializers import WebhookSerializer, WebhookLogSerializer
 
+@extend_schema_view(
+    list=extend_schema(tags=['Webhooks']),
+    create=extend_schema(tags=['Webhooks']),
+    retrieve=extend_schema(tags=['Webhooks']),
+    update=extend_schema(tags=['Webhooks']),
+    partial_update=extend_schema(tags=['Webhooks']),
+    destroy=extend_schema(tags=['Webhooks']),
+)
 class WebhookViewSet(viewsets.ModelViewSet):
     serializer_class = WebhookSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -23,6 +32,7 @@ class WebhookViewSet(viewsets.ModelViewSet):
             # Users can only see webhooks for their own forms
             return Webhook.objects.filter(form__created_by=user)
     
+    @extend_schema(tags=['Webhooks'])
     @action(detail=True, methods=['post'])
     def test(self, request, pk=None):
         webhook = self.get_object()
@@ -83,6 +93,7 @@ class WebhookViewSet(viewsets.ModelViewSet):
                 'message': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
     
+    @extend_schema(tags=['Webhooks'])
     @action(detail=True, methods=['get'])
     def logs(self, request, pk=None):
         webhook = self.get_object()

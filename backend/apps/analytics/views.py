@@ -5,11 +5,16 @@ from rest_framework.response import Response
 from django.db.models import Count, Avg, F
 from django.utils import timezone
 from datetime import timedelta
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from apps.forms.models import Form
 from apps.submissions.models import Submission
 from .models import FormAnalytics, FieldAnalytics
 from .serializers import FormAnalyticsSerializer, FieldAnalyticsSerializer
 
+@extend_schema_view(
+    list=extend_schema(tags=['Analytics']),
+    retrieve=extend_schema(tags=['Analytics']),
+)
 class FormAnalyticsViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = FormAnalyticsSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -22,6 +27,7 @@ class FormAnalyticsViewSet(viewsets.ReadOnlyModelViewSet):
             # Users can only see analytics for their own forms
             return FormAnalytics.objects.filter(form__created_by=user)
     
+    @extend_schema(tags=['Analytics'])
     @action(detail=True, methods=['get'])
     def submissions_over_time(self, request, pk=None):
         analytics = self.get_object()
@@ -37,6 +43,7 @@ class FormAnalyticsViewSet(viewsets.ReadOnlyModelViewSet):
         
         return Response(list(submissions))
     
+    @extend_schema(tags=['Analytics'])
     @action(detail=True, methods=['get'])
     def field_responses(self, request, pk=None):
         analytics = self.get_object()
@@ -71,6 +78,7 @@ class FormAnalyticsViewSet(viewsets.ReadOnlyModelViewSet):
             'response_counts': response_counts
         })
     
+    @extend_schema(tags=['Analytics'])
     @action(detail=True, methods=['post'])
     def track_view(self, request, pk=None):
         analytics = self.get_object()
@@ -78,6 +86,7 @@ class FormAnalyticsViewSet(viewsets.ReadOnlyModelViewSet):
         analytics.save()
         return Response({'status': 'view tracked'})
     
+    @extend_schema(tags=['Analytics'])
     @action(detail=True, methods=['post'])
     def calculate_completion_rate(self, request, pk=None):
         analytics = self.get_object()

@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, QuerySet
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from .models import Submission, SavedForm
 from .serializers import SubmissionSerializer, SavedFormSerializer
 from apps.forms.models import Form
@@ -16,6 +17,14 @@ from django.http import HttpResponse
 import os
 import requests
 
+@extend_schema_view(
+    list=extend_schema(tags=['Submissions']),
+    create=extend_schema(tags=['Submissions']),
+    retrieve=extend_schema(tags=['Submissions']),
+    update=extend_schema(tags=['Submissions']),
+    partial_update=extend_schema(tags=['Submissions']),
+    destroy=extend_schema(tags=['Submissions']),
+)
 class SubmissionViewSet(viewsets.ModelViewSet):
     serializer_class = SubmissionSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -70,6 +79,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         process_webhook.delay(str(form.id), 'submission.created', serializer.data)
         return submission
     
+    @extend_schema(tags=['Submissions'])
     @action(detail=False, methods=['get'])
     def export(self, request):
         form_id = request.query_params.get('form_id')
@@ -94,6 +104,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         else:
             return Response({'error': 'Unsupported format'}, status=status.HTTP_400_BAD_REQUEST)
 
+@extend_schema(tags=['Submissions'])
 class PublicSubmissionView(APIView):
     """Public endpoint for submitting forms (no auth required)"""
     permission_classes = [permissions.AllowAny]
@@ -146,6 +157,14 @@ class PublicSubmissionView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
+@extend_schema_view(
+    list=extend_schema(tags=['Submissions']),
+    create=extend_schema(tags=['Submissions']),
+    retrieve=extend_schema(tags=['Submissions']),
+    update=extend_schema(tags=['Submissions']),
+    partial_update=extend_schema(tags=['Submissions']),
+    destroy=extend_schema(tags=['Submissions']),
+)
 class SavedFormViewSet(viewsets.ModelViewSet):
     serializer_class = SavedFormSerializer
     permission_classes = [permissions.AllowAny]  # Allow anonymous users to save forms
@@ -159,6 +178,7 @@ class SavedFormViewSet(viewsets.ModelViewSet):
         session_key = self.request.session.session_key or self.request.session.create()
         serializer.save(session_key=session_key)
     
+    @extend_schema(tags=['Submissions'])
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
         saved_form = self.get_object()

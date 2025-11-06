@@ -1,11 +1,35 @@
 # fusionforms/urls.py
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
+from django.shortcuts import redirect
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from apps.core.health import HealthCheckView, ReadinessCheckView, LivenessCheckView
 from apps.core.monitoring import MetricsView
 
+
+def root_view(request):
+    """Root endpoint that provides API information"""
+    return JsonResponse({
+        'message': 'Welcome to FusionForms API',
+        'version': '1.0.0',
+        'documentation': {
+            'swagger': request.build_absolute_uri('/api/docs/'),
+            'redoc': request.build_absolute_uri('/api/redoc/'),
+            'schema': request.build_absolute_uri('/api/schema/'),
+        },
+        'endpoints': {
+            'api_v1': request.build_absolute_uri('/api/v1/'),
+            'health': request.build_absolute_uri('/health/'),
+            'admin': request.build_absolute_uri('/admin/'),
+        }
+    })
+
+
 urlpatterns = [
+    # Root endpoint
+    path('', root_view, name='root'),
+    
     path('admin/', admin.site.urls),
     
     # Health check endpoints

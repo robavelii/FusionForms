@@ -136,6 +136,7 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'apps.core.exceptions.custom_exception_handler',
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',  # Needed for Swagger UI
     ],
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
@@ -150,6 +151,30 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'API for the FusionForms platform',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    'TAGS': [
+        {'name': 'Authentication & Users', 'description': 'User registration, login, and profile management'},
+        {'name': 'Forms', 'description': 'Form creation, management, and versioning'},
+        {'name': 'Submissions', 'description': 'Form submission handling and export'},
+        {'name': 'Analytics', 'description': 'Form analytics and reporting'},
+        {'name': 'Webhooks', 'description': 'Webhook configuration and delivery'},
+        {'name': 'Health Checks', 'description': 'System health and monitoring endpoints'},
+    ],
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SECURITY': [
+        {
+            'tokenAuth': [],
+        }
+    ],
+    'APPEND_COMPONENTS': {
+        'securitySchemes': {
+            'tokenAuth': {
+                'type': 'apiKey',
+                'in': 'header',
+                'name': 'Authorization',
+                'description': 'Token-based authentication with required prefix: **Token &lt;token&gt;**'
+            }
+        }
+    },
 }
 
 # Custom user model
@@ -157,15 +182,15 @@ AUTH_USER_MODEL = 'accounts.User'
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
 # Dev-only convenience
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
 ]
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
@@ -174,7 +199,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 REDIS_CACHE_URL = os.getenv('REDIS_CACHE_URL', 'redis://localhost:6379/1')
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'BACKEND': 'django_redis.cache.RedisCache',
         'LOCATION': REDIS_CACHE_URL,
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',

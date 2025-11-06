@@ -31,8 +31,16 @@ class UserLoginSerializer(serializers.Serializer):
         password = attrs.get('password')
         
         if email and password:
+            # First get the user by email to find their username
+            try:
+                user_obj = User.objects.get(email=email)
+                username = user_obj.username
+            except User.DoesNotExist:
+                raise serializers.ValidationError('Invalid credentials')
+            
+            # Now authenticate with username
             user = authenticate(request=self.context.get('request'),
-                              username=email, password=password)
+                              username=username, password=password)
             
             if not user:
                 raise serializers.ValidationError('Invalid credentials')
@@ -50,3 +58,8 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'username', 'email', 'first_name', 'last_name', 'role', 'organization', 'date_joined')
         read_only_fields = ('id', 'date_joined')
+
+class AuthResponseSerializer(serializers.Serializer):
+    """Response serializer for authentication endpoints"""
+    user = UserSerializer()
+    token = serializers.CharField(help_text='Authentication token')
