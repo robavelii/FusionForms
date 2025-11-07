@@ -11,7 +11,7 @@ import { useAuthStore } from '@/stores/auth'
  * - viewer: Read-only access to forms and analytics
  */
 
-export type UserRole = 'admin' | 'designer' | 'analyst' | 'viewer'
+export type UserRole = 'super_admin' | 'admin' | 'designer' | 'analyst' | 'viewer'
 
 interface PermissionConfig {
   canCreateForm: UserRole[]
@@ -31,40 +31,40 @@ interface PermissionConfig {
 // Permission configuration based on backend permissions
 const PERMISSIONS: PermissionConfig = {
   // Form creation: admin and designer only
-  canCreateForm: ['admin', 'designer'],
+  canCreateForm: ['super_admin', 'admin', 'designer'],
   
   // Form editing: admin and designer only
-  canEditForm: ['admin', 'designer'],
+  canEditForm: ['super_admin', 'admin', 'designer'],
   
   // Form deletion: admin and designer only
-  canDeleteForm: ['admin', 'designer'],
+  canDeleteForm: ['super_admin', 'admin', 'designer'],
   
   // Analytics: all authenticated users can view (but only their own forms, or all for admins)
-  canViewAnalytics: ['admin', 'designer', 'analyst', 'viewer'],
+  canViewAnalytics: ['super_admin', 'admin', 'designer', 'analyst', 'viewer'],
   
   // Submissions: all authenticated users can view (but only their own forms, or all for admins)
-  canViewSubmissions: ['admin', 'designer', 'analyst', 'viewer'],
+  canViewSubmissions: ['super_admin', 'admin', 'designer', 'analyst', 'viewer'],
   
   // Submission editing: admin and designer only
-  canEditSubmissions: ['admin', 'designer'],
+  canEditSubmissions: ['super_admin', 'admin', 'designer'],
   
   // Submission deletion: admin and designer only
-  canDeleteSubmissions: ['admin', 'designer'],
+  canDeleteSubmissions: ['super_admin', 'admin', 'designer'],
   
   // User management: admin only
-  canManageUsers: ['admin'],
+  canManageUsers: ['super_admin', 'admin'],
   
   // Webhook management: admin and designer only
-  canManageWebhooks: ['admin', 'designer'],
+  canManageWebhooks: ['super_admin', 'admin', 'designer'],
   
   // Data export: admin, designer, and analyst
-  canExportData: ['admin', 'designer', 'analyst'],
+  canExportData: ['super_admin', 'admin', 'designer', 'analyst'],
   
   // Form publishing: admin and designer only
-  canPublishForm: ['admin', 'designer'],
+  canPublishForm: ['super_admin', 'admin', 'designer'],
   
   // Form duplication: admin and designer only
-  canDuplicateForm: ['admin', 'designer']
+  canDuplicateForm: ['super_admin', 'admin', 'designer']
 }
 
 export function usePermissions() {
@@ -74,6 +74,7 @@ export function usePermissions() {
     return (authStore.currentUser?.role as UserRole) || null
   })
   
+  const isSuperAdmin = computed(() => currentRole.value === 'super_admin')
   const isAdmin = computed(() => currentRole.value === 'admin')
   const isDesigner = computed(() => currentRole.value === 'designer')
   const isAnalyst = computed(() => currentRole.value === 'analyst')
@@ -114,6 +115,7 @@ export function usePermissions() {
   return {
     // Current role info
     currentRole,
+    isSuperAdmin,
     isAdmin,
     isDesigner,
     isAnalyst,

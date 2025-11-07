@@ -57,21 +57,21 @@
             <v-text-field v-model="formSchema.title" label="Form Title" required />
             <v-textarea v-model="formSchema.description" label="Form Description" />
             <v-text-field
-              v-model="formSchema.settings.submitButtonText"
+              v-model="formSchema.settings!.submitButtonText"
               label="Submit Button Text"
               default-value="Submit"
             />
             <v-text-field
-              v-model="formSchema.settings.successMessage"
+              v-model="formSchema.settings!.successMessage"
               label="Success Message"
               default-value="Thank you for your submission!"
             />
             <v-checkbox
-              v-model="formSchema.settings.saveProgress"
+              v-model="formSchema.settings!.saveProgress"
               label="Allow users to save progress"
             />
             <v-checkbox
-              v-model="formSchema.settings.multipleSubmissions"
+              v-model="formSchema.settings!.multipleSubmissions"
               label="Allow multiple submissions"
             />
           </v-form>
@@ -106,13 +106,15 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useFormsStore } from '@/stores/forms'
+import { useSnackbarStore } from '@/stores/snackbar'
 import FieldPalette from '@/components/form-builder/FieldPalette.vue'
 import FormCanvas from '@/components/form-builder/FormCanvas.vue'
 import FieldProperties from '@/components/form-builder/FieldProperties.vue'
 import FormPreview from '@/components/form-builder/FormPreview.vue'
 
-// Pinia store
+// Pinia stores
 const formsStore = useFormsStore()
+const snackbarStore = useSnackbarStore()
 const router = useRouter()
 const route = useRoute()
 
@@ -131,15 +133,20 @@ const formSchema = computed({
   get: () => formsStore.formSchema,
   set: (value) => formsStore.setFormSchema(value)
 })
-const formId = computed(() => currentForm.value?.id)
+const formId = computed(() => {
+  const id = currentForm.value?.id
+  // Backend uses UUID strings, ensure we return a string
+  return id ? String(id) : null
+})
 
 // Lifecycle
 onMounted(async () => {
   // Always initialize schema first
   formsStore.resetFormSchema()
   
-  if (isEditing.value) {
-    await formsStore.fetchForm(Number(route.params.id))
+  if (isEditing.value && route.params.id) {
+    // Backend uses UUID (string), so pass it as string
+    await formsStore.fetchForm(String(route.params.id))
   }
 })
 
@@ -156,34 +163,44 @@ function goBack() {
 async function saveForm() {
   saving.value = true
   try {
-    if (isEditing.value) {
-      await formsStore.updateForm({
-        id: formId.value!,
-        formData: { ...currentForm.value, schema: formSchema.value }
+    if (isEditing.value && formId.value) {
+      // Update existing form
+      await formsStore.updateForm(formId.value, {
+        title: formSchema.value.title || 'Untitled Form',
+        description: formSchema.value.description || '',
+        schema: formSchema.value
       })
+      snackbarStore.success('Form saved successfully')
     } else {
+      // Create new form
       const newForm = await formsStore.createForm({
         title: formSchema.value.title || 'Untitled Form',
         description: formSchema.value.description || '',
         schema: formSchema.value
       })
       router.replace(`/forms/${newForm.id}/edit`)
+      snackbarStore.success('Form created successfully')
     }
-    formsStore.showSnackbar({ message: 'Form saved successfully', color: 'success' })
-  } catch (error) {
-    formsStore.showSnackbar({ message: 'Error saving form', color: 'error' })
+  } catch (error: any) {
+    console.error('Error saving form:', error)
+    snackbarStore.error(error.response?.data?.detail || error.message || 'Error saving form')
   } finally {
     saving.value = false
   }
 }
 
 async function publishForm() {
+  if (!formId.value) {
+    snackbarStore.error('Please save the form before publishing')
+    return
+  }
   publishing.value = true
   try {
-    await formsStore.publishForm(formId.value!)
-    formsStore.showSnackbar({ message: 'Form published successfully', color: 'success' })
-  } catch (error) {
-    formsStore.showSnackbar({ message: 'Error publishing form', color: 'error' })
+    await formsStore.publishForm(formId.value)
+    snackbarStore.success('Form published successfully')
+  } catch (error: any) {
+    console.error('Error publishing form:', error)
+    snackbarStore.error(error.response?.data?.detail || error.message || 'Error publishing form')
   } finally {
     publishing.value = false
   }

@@ -15,6 +15,7 @@ const rail = ref(false)
 
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const currentUser = computed(() => authStore.currentUser)
+const isSuperAdmin = computed(() => authStore.isSuperAdmin)
 const isAdmin = computed(() => authStore.isAdmin)
 
 // Navigation item type
@@ -41,7 +42,7 @@ const navigationItems = computed((): NavigationItem[] => {
   ]
   
   // Add admin-only items
-  if (isAdmin.value) {
+  if (isSuperAdmin.value || isAdmin.value) {
     items.push({
       title: 'Users',
       icon: 'mdi-account-multiple',

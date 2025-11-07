@@ -3,24 +3,34 @@ import apiClient from '@/services/api'
 
 // Types for form fields and schema
 export interface FormField {
-  id?: number
-  name: string
+  id?: string | number
+  label: string  // Changed from 'name' to 'label' to match form builder
   type: string
-  options?: string[]
+  required?: boolean
+  options?: any
+  value?: any
   [key: string]: any
 }
 
 export interface FormSchema {
   title: string
-  description: string
+  description?: string
   fields: FormField[]
-  settings: Record<string, any>
+  settings?: Record<string, any>
 }
 
 export interface Form {
-  id: number
-  name: string
+  id: string | number  // Backend uses UUID (string), but we support both
+  title: string
+  name?: string  // Some APIs might use 'name' instead of 'title'
+  description?: string
   schema: FormSchema
+  status?: string
+  version?: number
+  created_by?: any
+  created_at?: string
+  updated_at?: string
+  published_at?: string
   [key: string]: any
 }
 
@@ -41,7 +51,17 @@ export const useFormsStore = defineStore('forms', {
       title: '',
       description: '',
       fields: [],
-      settings: {}
+      settings: {
+        submitButtonText: 'Submit',
+        successMessage: 'Thank you for your submission!',
+        saveProgress: false,
+        multipleSubmissions: false,
+        allowMultipleSubmissions: false,
+        showProgressBar: false,
+        enableHoneypot: false,
+        enableCaptcha: false,
+        redirectUrl: ''
+      }
     },
     loading: false,
     error: null
@@ -93,7 +113,17 @@ export const useFormsStore = defineStore('forms', {
         title: '',
         description: '',
         fields: [],
-        settings: {}
+        settings: {
+          submitButtonText: 'Submit',
+          successMessage: 'Thank you for your submission!',
+          saveProgress: false,
+          multipleSubmissions: false,
+          allowMultipleSubmissions: false,
+          showProgressBar: false,
+          enableHoneypot: false,
+          enableCaptcha: false,
+          redirectUrl: ''
+        }
       }
     },
 
@@ -102,23 +132,46 @@ export const useFormsStore = defineStore('forms', {
       this.setError(null)
       try {
         const response = await apiClient.get('/forms/')
-        this.setForms(response.data.results)
+        // Handle both paginated and non-paginated responses
+        const forms = response.data.results || response.data
+        this.setForms(Array.isArray(forms) ? forms : [])
       } catch (error: any) {
         this.setError(error.message || 'Failed to fetch forms')
+        throw error
       } finally {
         this.setLoading(false)
       }
     },
 
-    async fetchForm(id: number) {
+    async fetchForm(id: string | number) {
       this.setLoading(true)
       this.setError(null)
       try {
         const response = await apiClient.get(`/forms/${id}/`)
         this.setCurrentForm(response.data)
-        this.setFormSchema(response.data.schema)
+        // Ensure schema has all required properties with defaults
+        const schema = response.data.schema || {}
+        // If schema doesn't have title/description, use form's title/description
+        this.setFormSchema({
+          title: schema.title || response.data.title || '',
+          description: schema.description || response.data.description || '',
+          fields: schema.fields || [],
+          settings: {
+            submitButtonText: 'Submit',
+            successMessage: 'Thank you for your submission!',
+            saveProgress: false,
+            multipleSubmissions: false,
+            allowMultipleSubmissions: false,
+            showProgressBar: false,
+            enableHoneypot: false,
+            enableCaptcha: false,
+            redirectUrl: '',
+            ...schema.settings
+          }
+        })
       } catch (error: any) {
         this.setError(error.message || 'Failed to fetch form')
+        throw error
       } finally {
         this.setLoading(false)
       }
@@ -139,12 +192,16 @@ export const useFormsStore = defineStore('forms', {
       }
     },
 
-    async updateForm(id: number, formData: Partial<Form>) {
+    async updateForm(id: string | number, formData: Partial<Form>) {
       this.setLoading(true)
       this.setError(null)
       try {
         const response = await apiClient.put(`/forms/${id}/`, formData)
         this.setCurrentForm(response.data)
+        // Update schema if it was included in the response
+        if (response.data.schema) {
+          this.setFormSchema(response.data.schema)
+        }
         return response.data
       } catch (error: any) {
         this.setError(error.message || 'Failed to update form')
@@ -154,12 +211,13 @@ export const useFormsStore = defineStore('forms', {
       }
     },
 
-    async publishForm(id: number) {
+    async publishForm(id: string | number) {
       this.setLoading(true)
       this.setError(null)
       try {
         const response = await apiClient.post(`/forms/${id}/publish/`)
-        this.setCurrentForm(response.data)
+        // Refresh the form to get updated status
+        await this.fetchForm(id)
         return response.data
       } catch (error: any) {
         this.setError(error.message || 'Failed to publish form')
@@ -169,7 +227,7 @@ export const useFormsStore = defineStore('forms', {
       }
     },
 
-    async duplicateForm(id: number) {
+    async duplicateForm(id: string | number) {
       this.setLoading(true)
       this.setError(null)
       try {
@@ -183,12 +241,12 @@ export const useFormsStore = defineStore('forms', {
       }
     },
 
-    async deleteForm(id: number) {
+    async deleteForm(id: string | number) {
       this.setLoading(true)
       this.setError(null)
       try {
         await apiClient.delete(`/forms/${id}/`)
-        this.forms = this.forms.filter(f => f.id !== id)
+        this.forms = this.forms.filter(f => String(f.id) !== String(id))
         return true
       } catch (error: any) {
         this.setError(error.message || 'Failed to delete form')

@@ -233,6 +233,7 @@ const userToDelete = ref<any>(null)
 
 // All roles including admin (only visible to admins)
 const allRoles = [
+  { title: 'Super Admin', value: 'super_admin' },
   { title: 'Admin', value: 'admin' },
   { title: 'Form Designer', value: 'designer' },
   { title: 'Data Analyst', value: 'analyst' },
@@ -280,6 +281,7 @@ const rules = {
 // Methods
 function getRoleColor(role: string) {
   const colors: Record<string, string> = {
+    super_admin: 'warning',
     admin: 'error',
     designer: 'primary',
     analyst: 'success',
@@ -290,6 +292,7 @@ function getRoleColor(role: string) {
 
 function getRoleLabel(role: string) {
   const labels: Record<string, string> = {
+    super_admin: 'Super Admin',
     admin: 'Admin',
     designer: 'Form Designer',
     analyst: 'Data Analyst',
@@ -301,8 +304,8 @@ function getRoleLabel(role: string) {
 async function fetchUsers() {
   loading.value = true
   try {
-    const response = await apiClient.get('/accounts/users/')
-    users.value = response.data.map((user: any) => ({
+    const response = await apiClient.get('/accounts/admin/users/')
+    users.value = response.data.results.map((user: any) => ({
       ...user,
       full_name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || '-'
     }))

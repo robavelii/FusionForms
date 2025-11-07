@@ -2,10 +2,49 @@
   <div class="form-canvas">
     <v-card>
       <v-card-title class="text-h6">
-        {{ formSchema?.title || 'Untitled Form' }}
+        <v-text-field
+          v-if="isEditingTitle"
+          v-model="editableTitle"
+          variant="plain"
+          density="compact"
+          hide-details
+          autofocus
+          @blur="saveTitle"
+          @keyup.enter="saveTitle"
+          @keyup.esc="cancelEditTitle"
+          class="title-edit-field"
+        />
+        <span
+          v-else
+          @click="startEditTitle"
+          class="title-editable"
+          :title="'Click to edit title'"
+        >
+          {{ formSchema?.title || 'Untitled Form' }}
+        </span>
       </v-card-title>
-      <v-card-subtitle v-if="formSchema?.description">
-        {{ formSchema.description }}
+      <v-card-subtitle class="description-editable">
+        <v-textarea
+          v-if="isEditingDescription"
+          v-model="editableDescription"
+          variant="plain"
+          density="compact"
+          hide-details
+          rows="2"
+          autofocus
+          placeholder="Add a description (click to edit)"
+          @blur="saveDescription"
+          @keyup.esc="cancelEditDescription"
+          class="description-edit-field"
+        />
+        <span
+          v-else
+          @click="startEditDescription"
+          :title="'Click to edit description'"
+          class="description-text"
+        >
+          {{ formSchema?.description || 'Add a description (click to edit)' }}
+        </span>
       </v-card-subtitle>
       <v-card-text>
         <div
@@ -18,7 +57,7 @@
         >
           <draggable
             v-if="formSchema && formSchema.fields"
-            v-model="formSchema.fields"
+            v-model="localFormSchema.fields"
             group="formFields"
             item-key="id"
             @change="onFieldChange"
@@ -69,7 +108,7 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive, ref } from 'vue'
+import { reactive, ref, computed, watch } from 'vue'
 import draggable from 'vuedraggable'
 
 import FieldText from './fields/FieldText.vue'
@@ -91,21 +130,11 @@ import FieldHeading from './fields/FieldHeading.vue'
 import FieldParagraph from './fields/FieldParagraph.vue'
 import FieldDivider from './fields/FieldDivider.vue'
 import FieldImage from './fields/FieldImage.vue'
+import type { FormField, FormSchema } from '@/stores/forms'
 
 /* ----------------- TYPES ----------------- */
-interface Field {
-  id: string
-  type: string
-  label: string
-  required?: boolean
-  options?: any
-}
-
-interface FormSchema {
-  title: string
-  description?: string
-  fields: Field[]
-}
+// Use Field as an alias for FormField for local use
+type Field = FormField
 
 /* ----------------- PROPS ----------------- */
 const props = defineProps<{
@@ -120,6 +149,87 @@ const emit = defineEmits<{
 
 /* ----------------- STATE ----------------- */
 const isDraggingOver = ref(false)
+const isEditingTitle = ref(false)
+const isEditingDescription = ref(false)
+const editableTitle = ref('')
+const editableDescription = ref('')
+
+// Create a local reactive copy of formSchema to avoid mutating props
+const localFormSchema = ref<FormSchema>({
+  title: '',
+  description: '',
+  fields: [],
+  settings: {}
+})
+
+// Sync prop changes to local schema
+watch(() => props.formSchema, (newSchema) => {
+  if (newSchema) {
+    localFormSchema.value = {
+      title: newSchema.title || '',
+      description: newSchema.description || '',
+      fields: newSchema.fields ? [...newSchema.fields] : [],
+      settings: newSchema.settings || {}
+    }
+  } else {
+    // Initialize with empty schema if prop is null/undefined
+    localFormSchema.value = {
+      title: '',
+      description: '',
+      fields: [],
+      settings: {}
+    }
+  }
+}, { immediate: true, deep: true })
+
+// Computed property for template display
+const formSchema = computed(() => localFormSchema.value)
+
+// Helper function to update and emit schema
+function updateSchema(updater: (schema: FormSchema) => void) {
+  const updatedSchema = { ...localFormSchema.value }
+  updater(updatedSchema)
+  localFormSchema.value = updatedSchema
+  emit('update:formSchema', updatedSchema)
+}
+
+// Title editing functions
+function startEditTitle() {
+  editableTitle.value = formSchema.value?.title || ''
+  isEditingTitle.value = true
+}
+
+function saveTitle() {
+  if (editableTitle.value.trim()) {
+    updateSchema((schema) => {
+      schema.title = editableTitle.value.trim()
+    })
+  }
+  isEditingTitle.value = false
+}
+
+function cancelEditTitle() {
+  editableTitle.value = formSchema.value?.title || ''
+  isEditingTitle.value = false
+}
+
+// Description editing functions
+function startEditDescription() {
+  editableDescription.value = formSchema.value?.description || ''
+  isEditingDescription.value = true
+}
+
+function saveDescription() {
+  updateSchema((schema) => {
+    schema.description = editableDescription.value.trim()
+  })
+  isEditingDescription.value = false
+}
+
+function cancelEditDescription() {
+  editableDescription.value = formSchema.value?.description || ''
+  isEditingDescription.value = false
+}
 
 /* ----------------- METHODS ----------------- */
 function getFieldComponent(type: string) {
@@ -204,11 +314,6 @@ function onDrop(event: DragEvent) {
       return
     }
     
-    if (!props.formSchema) {
-      console.error('No formSchema available')
-      return
-    }
-    
     const fieldDataStr = event.dataTransfer.getData('application/json')
     if (!fieldDataStr) {
       console.error('No data in drop event')
@@ -218,22 +323,23 @@ function onDrop(event: DragEvent) {
     const fieldData = JSON.parse(fieldDataStr)
     console.log('Dropping field:', fieldData)
     
-    const newField: Field = reactive({
+    const newField: Field = {
       id: `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type: fieldData.type,
       label: fieldData.label,
       required: false,
       options: getDefaultOptions(fieldData.type)
-    })
-    
-    // Ensure fields array exists
-    if (!props.formSchema.fields) {
-      props.formSchema.fields = []
     }
     
-    props.formSchema.fields.push(newField)
-    emit('update:formSchema', props.formSchema)
-    selectField(props.formSchema.fields.length - 1)
+    // Ensure fields array exists and add the new field
+    updateSchema((schema) => {
+      if (!schema.fields) {
+        schema.fields = []
+      }
+      schema.fields.push(newField)
+    })
+    
+    selectField(localFormSchema.value.fields.length - 1)
     
     console.log('Field added successfully', newField)
   } catch (error) {
@@ -242,35 +348,57 @@ function onDrop(event: DragEvent) {
 }
 
 function onFieldChange() {
-  if (props.formSchema) {
-    emit('update:formSchema', props.formSchema)
-  }
+  // Draggable v-model automatically updates localFormSchema.fields
+  // Just emit the update to sync with parent
+  emit('update:formSchema', localFormSchema.value)
 }
 
 function selectField(index: number) {
   emit('selectField', index)
 }
 
-function updateField(index: number, field: Field) {
-  if (props.formSchema) {
-    props.formSchema.fields.splice(index, 1, field)
-    emit('update:formSchema', props.formSchema)
+function updateField(index: number, field: any) {
+  // Ensure field has all required properties
+  const updatedField: Field = {
+    id: field.id || `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    type: field.type || 'text',
+    label: field.label || '',
+    required: field.required || false,
+    options: field.options || {}
   }
+  updateSchema((schema) => {
+    if (schema.fields && index >= 0 && index < schema.fields.length) {
+      schema.fields.splice(index, 1, updatedField)
+    }
+  })
 }
 
 function duplicateField(index: number) {
-  if (!props.formSchema) return
-  const field = { ...props.formSchema.fields[index] }
-  field.id = `field_${Date.now()}`
-  props.formSchema.fields.splice(index + 1, 0, field)
-  emit('update:formSchema', props.formSchema)
+  if (!localFormSchema.value.fields || index < 0 || index >= localFormSchema.value.fields.length) return
+  const originalField = localFormSchema.value.fields[index]
+  if (!originalField) return
+  const field: Field = {
+    id: `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    type: originalField.type,
+    label: originalField.label,
+    required: originalField.required || false,
+    options: originalField.options ? { ...originalField.options } : {}
+  }
+  updateSchema((schema) => {
+    if (schema.fields) {
+      schema.fields.splice(index + 1, 0, field)
+    }
+  })
   selectField(index + 1)
 }
 
 function removeField(index: number) {
-  if (!props.formSchema) return
-  props.formSchema.fields.splice(index, 1)
-  emit('update:formSchema', props.formSchema)
+  if (!localFormSchema.value.fields || index < 0 || index >= localFormSchema.value.fields.length) return
+  updateSchema((schema) => {
+    if (schema.fields) {
+      schema.fields.splice(index, 1)
+    }
+  })
   if (props.selectedFieldIndex === index) {
     selectField(-1)
   } else if (props.selectedFieldIndex > index) {
@@ -357,5 +485,42 @@ function removeField(index: number) {
   margin-top: 16px;
   font-size: 1.1rem;
   font-weight: 500;
+}
+
+.title-editable {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.title-editable:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.title-edit-field {
+  width: 100%;
+}
+
+.description-editable {
+  min-height: 40px;
+  padding: 8px;
+}
+
+.description-text {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: block;
+  transition: background-color 0.2s;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+}
+
+.description-text:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.description-edit-field {
+  width: 100%;
 }
 </style>

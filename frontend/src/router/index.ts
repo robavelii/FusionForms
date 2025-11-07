@@ -133,8 +133,9 @@ router.beforeEach((to, from, next) => {
   
   // Legacy admin check (for backwards compatibility)
   if (to.matched.some(record => record.meta.requiresAdmin)) {
+    const isSuperAdmin = authStore.isSuperAdmin
     const isAdmin = authStore.isAdmin
-    if (!isAdmin) {
+    if (!isSuperAdmin && !isAdmin) {
       next('/dashboard')
       return
     }

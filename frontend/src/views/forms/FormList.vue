@@ -83,14 +83,16 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFormsStore } from '@/stores/forms'
+import { useSnackbarStore } from '@/stores/snackbar'
 import { usePermissions } from '@/composables/usePermissions'
 import type { Form } from '@/types/formTypes'
 
 // Router
 const router = useRouter()
 
-// Pinia store
+// Pinia stores
 const formsStore = useFormsStore()
+const snackbarStore = useSnackbarStore()
 
 // Permissions
 const { 
@@ -142,10 +144,10 @@ function viewAnalytics(id: string) {
 async function duplicateFormItem(id: string) {
   try {
     await formsStore.duplicateForm(id)
-    formsStore.showSnackbar({ message: 'Form duplicated successfully', color: 'success' })
+    snackbarStore.success('Form duplicated successfully')
     formsStore.fetchForms()
-  } catch (error) {
-    formsStore.showSnackbar({ message: 'Error duplicating form', color: 'error' })
+  } catch (error: any) {
+    snackbarStore.error(error.response?.data?.detail || error.message || 'Error duplicating form')
   }
 }
 

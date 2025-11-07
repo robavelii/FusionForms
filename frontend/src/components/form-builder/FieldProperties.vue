@@ -299,6 +299,7 @@
 
 <script lang="ts" setup>
 import { computed, watch, reactive } from 'vue'
+import type { FormField, FormSchema } from '@/stores/forms'
 
 interface Option {
   label: string
@@ -321,18 +322,9 @@ interface ConditionalVisibility {
   value: string
 }
 
-interface Field {
-  id: string
-  type: string
-  label: string
-  required?: boolean
-  options: Record<string, any>
+interface Field extends FormField {
   validation?: Validation
   conditionalVisibility?: ConditionalVisibility
-}
-
-interface FormSchema {
-  fields: Field[]
 }
 
 const props = defineProps<{
