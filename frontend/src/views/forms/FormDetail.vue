@@ -118,14 +118,14 @@
               v-if="canViewSubmissions"
               value="submissions"
             >
-              <FormSubmissions :form-id="form.id" />
+              <FormSubmissions :form-id="formId.value" />
             </v-window-item>
 
             <v-window-item 
               v-if="canViewAnalytics"
               value="analytics"
             >
-              <FormAnalytics />
+              <FormAnalytics :form-id="formId.value" />
             </v-window-item>
 
             <v-window-item 
@@ -232,7 +232,7 @@ const {
   canViewAnalytics
 } = usePermissions()
 
-const formId = Number(route.params.id)
+const formId = computed(() => String(route.params.id))
 const activeTab = ref('overview')
 const loading = ref(false)
 const showEmbedDialog = ref(false)
@@ -244,21 +244,21 @@ const form = computed(() => formsStore.currentForm)
 const baseUrl = computed(() => window.location.origin)
 
 const iframeEmbedCode = computed(() => 
-  `<iframe src="${baseUrl.value}/forms/${formId}/preview" width="100%" height="600" frameborder="0"></iframe>`
+  `<iframe src="${baseUrl.value}/forms/${formId.value}/preview" width="100%" height="600" frameborder="0"></iframe>`
 )
 
 const scriptEmbedCode = computed(() => 
-  `<div id="fusionforms-${formId}"></div>
+  `<div id="fusionforms-${formId.value}"></div>
 <script src="${baseUrl.value}/embed.js"></script>
 <script>
-  FusionForms.embed(${formId}, 'fusionforms-${formId}');
+  FusionForms.embed('${formId.value}', 'fusionforms-${formId.value}');
 </script>`
 )
 
 onMounted(async () => {
   loading.value = true
   try {
-    await formsStore.fetchForm(formId)
+    await formsStore.fetchForm(formId.value)
   } catch (error) {
     snackbarStore.error('Failed to load form')
     router.push('/forms')
@@ -281,12 +281,12 @@ function goBack() {
 }
 
 function editForm() {
-  router.push(`/forms/${formId}/edit`)
+  router.push(`/forms/${formId.value}/edit`)
 }
 
 async function duplicateForm() {
   try {
-    const duplicated = await formsStore.duplicateForm(formId)
+    const duplicated = await formsStore.duplicateForm(formId.value)
     snackbarStore.success('Form duplicated successfully')
     router.push(`/forms/${duplicated.id}`)
   } catch (error) {
@@ -302,7 +302,7 @@ function copyEmbedCode() {
 
 async function handleDelete() {
   try {
-    await formsStore.deleteForm(formId)
+    await formsStore.deleteForm(formId.value)
     snackbarStore.success('Form deleted successfully')
     router.push('/forms')
   } catch (error) {

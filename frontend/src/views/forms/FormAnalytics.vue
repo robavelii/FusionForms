@@ -243,7 +243,13 @@ const route = useRoute()
 const router = useRouter()
 const snackbarStore = useSnackbarStore()
 
-const formId = route.params.id
+// Props - allow formId to be passed as prop (when used as component) or from route
+const props = defineProps<{
+  formId?: string
+}>()
+
+// Get formId from prop or route
+const formId = computed(() => props.formId || String(route.params.id))
 const formTitle = ref('Form')
 const loading = ref(false)
 const selectedPeriod = ref('30d')
@@ -453,7 +459,7 @@ function changePeriod(period: string) {
 async function fetchAnalytics() {
   loading.value = true
   try {
-    const response = await apiClient.get(`/analytics/forms/${formId}/`, {
+    const response = await apiClient.get(`/analytics/forms/${formId.value}/`, {
       params: {
         start_date: dateRange.start,
         end_date: dateRange.end
@@ -509,7 +515,7 @@ function getFieldChartData(field: any) {
 
 async function exportData() {
   try {
-    const response = await apiClient.get(`/analytics/forms/${formId}/export/`, {
+    const response = await apiClient.get(`/analytics/forms/${formId.value}/export/`, {
       params: {
         start_date: dateRange.start,
         end_date: dateRange.end,
@@ -522,7 +528,7 @@ async function exportData() {
     const url = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', `form-${formId}-analytics.csv`)
+    link.setAttribute('download', `form-${formId.value}-analytics.csv`)
     document.body.appendChild(link)
     link.click()
     link.remove()
@@ -535,7 +541,7 @@ async function exportData() {
 }
 
 function goBack() {
-  router.push(`/forms/${formId}`)
+  router.push(`/forms/${formId.value}`)
 }
 </script>
 

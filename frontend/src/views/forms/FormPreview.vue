@@ -243,17 +243,24 @@ onMounted(async () => {
 async function fetchForm() {
   loading.value = true
   try {
-    const response = await apiClient.get(`/forms/${formId}/`)
-    formSchema.value = response.data.schema
+    // Use public endpoint for published forms (no auth required)
+    const response = await apiClient.get(`/forms/public/${formId}/`)
+    formSchema.value = response.data.schema || response.data
     
     // Initialize form data with default values
-    formSchema.value.fields?.forEach((field: any) => {
-      if (field.options?.defaultValue) {
-        formData[field.id] = field.options.defaultValue
-      }
-    })
-  } catch (error) {
+    if (formSchema.value?.fields) {
+      formSchema.value.fields.forEach((field: any) => {
+        if (field.options?.defaultValue !== undefined) {
+          formData[field.id || ''] = field.options.defaultValue
+        } else {
+          formData[field.id || ''] = null
+        }
+      })
+    }
+  } catch (error: any) {
     console.error('Error fetching form:', error)
+    errorMessage.value = error.response?.data?.detail || 'Failed to load form. The form may not exist or may not be published.'
+    loading.value = false
   } finally {
     loading.value = false
   }
@@ -338,9 +345,10 @@ async function submitForm() {
   errorMessage.value = ''
 
   try {
-    await apiClient.post(`/submissions/`, {
-      form: formId,
-      data: formData
+    // Use public submission endpoint (no auth required)
+    await apiClient.post(`/submissions/public/${formId}/`, {
+      data: formData,
+      recaptchaToken: null // Add reCAPTCHA token if enabled
     })
 
     submitted.value = true
@@ -349,13 +357,21 @@ async function submitForm() {
     localStorage.removeItem(`form_${formId}_progress`)
 
     // Redirect if configured
-    if (formSchema.value.settings?.redirectUrl) {
+    if (formSchema.value?.settings?.redirectUrl) {
       setTimeout(() => {
         window.location.href = formSchema.value.settings.redirectUrl
       }, 2000)
     }
   } catch (error: any) {
-    errorMessage.value = error.response?.data?.message || 'Failed to submit form. Please try again.'
+    console.error('Submission error:', error)
+    const errorDetail = error.response?.data
+    if (errorDetail?.data) {
+      errorMessage.value = `Validation error: ${JSON.stringify(errorDetail.data)}`
+    } else if (errorDetail?.recaptcha) {
+      errorMessage.value = 'reCAPTCHA verification failed. Please try again.'
+    } else {
+      errorMessage.value = errorDetail?.detail || errorDetail?.message || 'Failed to submit form. Please try again.'
+    }
   } finally {
     submitting.value = false
   }
