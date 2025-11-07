@@ -103,7 +103,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useFormsStore } from '@/stores/forms'
 import { useSnackbarStore } from '@/stores/snackbar'
@@ -126,13 +126,80 @@ const showPreview = ref(false)
 const saving = ref(false)
 const publishing = ref(false)
 
+// Default schema for fallback
+const defaultSchema = {
+  title: '',
+  description: '',
+  fields: [],
+  settings: {
+    submitButtonText: 'Submit',
+    successMessage: 'Thank you for your submission!',
+    saveProgress: false,
+    multipleSubmissions: false,
+    allowMultipleSubmissions: false,
+    showProgressBar: false,
+    enableHoneypot: false,
+    enableCaptcha: false,
+    redirectUrl: ''
+  }
+}
+
 // Computed
 const isEditing = computed(() => !!route.params.id)
 const currentForm = computed(() => formsStore.currentForm)
+
+// Use a ref to track the formSchema to avoid readonly computed issues
+// This allows direct mutations while still syncing with the store
+const formSchemaRef = ref({ ...defaultSchema, ...formsStore.formSchema })
+
+// Sync store changes to local ref (one-way: store -> local)
+watch(() => formsStore.formSchema, (newSchema) => {
+  if (newSchema) {
+    // Deep merge to preserve local changes that haven't been saved
+    const current = formSchemaRef.value
+    formSchemaRef.value = {
+      ...defaultSchema,
+      ...newSchema,
+      // Preserve fields if they exist in local but not in store
+      fields: newSchema.fields && newSchema.fields.length > 0 
+        ? newSchema.fields 
+        : (current.fields || [])
+    }
+  }
+}, { immediate: true, deep: true })
+
 const formSchema = computed({
-  get: () => formsStore.formSchema,
-  set: (value) => formsStore.setFormSchema(value)
+  get: () => {
+    // Always return a valid schema
+    const schema = formSchemaRef.value
+    return {
+      ...defaultSchema,
+      ...schema,
+      fields: schema.fields || [],
+      settings: {
+        ...defaultSchema.settings,
+        ...(schema.settings || {})
+      }
+    }
+  },
+  set: (value) => {
+    // Update local ref and sync to store
+    formSchemaRef.value = {
+      ...defaultSchema,
+      ...value,
+      fields: value.fields || [],
+      settings: {
+        ...defaultSchema.settings,
+        ...(value.settings || {})
+      }
+    }
+    // Update store asynchronously to avoid circular updates
+    nextTick(() => {
+      formsStore.setFormSchema(formSchemaRef.value)
+    })
+  }
 })
+
 const formId = computed(() => {
   const id = currentForm.value?.id
   // Backend uses UUID strings, ensure we return a string
@@ -143,17 +210,28 @@ const formId = computed(() => {
 onMounted(async () => {
   // Always initialize schema first
   formsStore.resetFormSchema()
+  formSchemaRef.value = { ...defaultSchema, ...formsStore.formSchema }
   
   if (isEditing.value && route.params.id) {
     // Backend uses UUID (string), so pass it as string
-    await formsStore.fetchForm(String(route.params.id))
+    try {
+      await formsStore.fetchForm(String(route.params.id))
+      formSchemaRef.value = { ...defaultSchema, ...formsStore.formSchema }
+    } catch (error) {
+      console.error('Error fetching form:', error)
+    }
   }
 })
 
 // Methods
 function selectField(index: number) {
   selectedFieldIndex.value = index
-  selectedField.value = index >= 0 ? formSchema.value.fields[index] : null
+  const schema = formSchema.value
+  if (schema && schema.fields && index >= 0 && index < schema.fields.length) {
+    selectedField.value = schema.fields[index]
+  } else {
+    selectedField.value = null
+  }
 }
 
 function goBack() {
@@ -163,20 +241,26 @@ function goBack() {
 async function saveForm() {
   saving.value = true
   try {
+    const schema = formSchema.value
+    if (!schema) {
+      snackbarStore.error('Form schema is not initialized')
+      return
+    }
+    
     if (isEditing.value && formId.value) {
       // Update existing form
       await formsStore.updateForm(formId.value, {
-        title: formSchema.value.title || 'Untitled Form',
-        description: formSchema.value.description || '',
-        schema: formSchema.value
+        title: schema.title || 'Untitled Form',
+        description: schema.description || '',
+        schema: schema
       })
       snackbarStore.success('Form saved successfully')
     } else {
       // Create new form
       const newForm = await formsStore.createForm({
-        title: formSchema.value.title || 'Untitled Form',
-        description: formSchema.value.description || '',
-        schema: formSchema.value
+        title: schema.title || 'Untitled Form',
+        description: schema.description || '',
+        schema: schema
       })
       router.replace(`/forms/${newForm.id}/edit`)
       snackbarStore.success('Form created successfully')

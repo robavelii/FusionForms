@@ -14,7 +14,7 @@
               <v-form ref="form" v-model="valid">
                 <div
                   v-for="(field, index) in formSchema.fields"
-                  :key="field.id"
+                  :key="field.id || index"
                   class="form-field"
                 >
                   <component
@@ -26,7 +26,7 @@
                 </div>
 
                 <v-btn color="primary" :disabled="!valid" @click="submitForm">
-                  {{ formSchema.settings.submitButtonText || 'Submit' }}
+                  {{ formSchema.settings?.submitButtonText || 'Submit' }}
                 </v-btn>
               </v-form>
             </v-card-text>
@@ -40,7 +40,7 @@
       <v-card>
         <v-card-title class="text-h5">Success!</v-card-title>
         <v-card-text>
-          {{ formSchema.settings.successMessage || 'Thank you for your submission!' }}
+          {{ formSchema.settings?.successMessage || 'Thank you for your submission!' }}
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -52,14 +52,30 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, reactive, toRefs } from 'vue'
+import { ref, onMounted, reactive, computed } from 'vue'
 import type { FormSchema, FormField } from '@/types/formTypes'
 
 // Props
 interface Props {
-  formSchema: FormSchema
+  formSchema?: FormSchema | null
 }
 const props = defineProps<Props>()
+
+// Default schema for safety
+const defaultSchema: FormSchema = {
+  title: '',
+  description: '',
+  fields: [],
+  settings: {
+    submitButtonText: 'Submit',
+    successMessage: 'Thank you for your submission!'
+  }
+}
+
+// Computed schema that always returns a valid schema
+const formSchema = computed(() => {
+  return props.formSchema || defaultSchema
+})
 
 // Refs
 const form = ref()
@@ -69,13 +85,16 @@ const formData = reactive<Record<string, any>>({})
 
 // Initialize formData with default values
 onMounted(() => {
-  props.formSchema.fields.forEach((field) => {
-    if (field.options.defaultValue !== undefined) {
-      formData[field.id] = field.options.defaultValue
-    } else {
-      formData[field.id] = null
-    }
-  })
+  const schema = formSchema.value
+  if (schema && schema.fields) {
+    schema.fields.forEach((field) => {
+      if (field.options?.defaultValue !== undefined) {
+        formData[field.id || ''] = field.options.defaultValue
+      } else {
+        formData[field.id || ''] = null
+      }
+    })
+  }
 })
 
 // Methods

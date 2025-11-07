@@ -169,7 +169,17 @@ watch(() => props.formSchema, (newSchema) => {
       title: newSchema.title || '',
       description: newSchema.description || '',
       fields: newSchema.fields ? [...newSchema.fields] : [],
-      settings: newSchema.settings || {}
+      settings: newSchema.settings || {
+        submitButtonText: 'Submit',
+        successMessage: 'Thank you for your submission!',
+        saveProgress: false,
+        multipleSubmissions: false,
+        allowMultipleSubmissions: false,
+        showProgressBar: false,
+        enableHoneypot: false,
+        enableCaptcha: false,
+        redirectUrl: ''
+      }
     }
   } else {
     // Initialize with empty schema if prop is null/undefined
@@ -177,7 +187,17 @@ watch(() => props.formSchema, (newSchema) => {
       title: '',
       description: '',
       fields: [],
-      settings: {}
+      settings: {
+        submitButtonText: 'Submit',
+        successMessage: 'Thank you for your submission!',
+        saveProgress: false,
+        multipleSubmissions: false,
+        allowMultipleSubmissions: false,
+        showProgressBar: false,
+        enableHoneypot: false,
+        enableCaptcha: false,
+        redirectUrl: ''
+      }
     }
   }
 }, { immediate: true, deep: true })
@@ -323,10 +343,21 @@ function onDrop(event: DragEvent) {
     const fieldData = JSON.parse(fieldDataStr)
     console.log('Dropping field:', fieldData)
     
+    // Generate a default label based on field type if not provided
+    // Use the label from fieldData if available, otherwise format the type
+    let defaultLabel = fieldData.label
+    if (!defaultLabel) {
+      // Format field type: 'text' -> 'Text', 'text_area' -> 'Text Area'
+      defaultLabel = fieldData.type
+        .split(/[-_]/)
+        .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ')
+    }
+    
     const newField: Field = {
       id: `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type: fieldData.type,
-      label: fieldData.label,
+      label: defaultLabel,
       required: false,
       options: getDefaultOptions(fieldData.type)
     }

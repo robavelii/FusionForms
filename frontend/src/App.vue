@@ -50,20 +50,19 @@ const navigationItems = computed((): NavigationItem[] => {
     })
   }
   
-  items.push(
-    {
-      title: 'Analytics',
-      icon: 'mdi-chart-line',
-      to: '/analytics',
-      disabled: true // Will be enabled later with global analytics
-    },
-    {
-      title: 'Settings',
-      icon: 'mdi-cog',
-      to: '/settings',
-      disabled: true // Will be enabled later
-    }
-  )
+  // Analytics - show for all authenticated users (can be per-form or global)
+  items.push({
+    title: 'Analytics',
+    icon: 'mdi-chart-line',
+    to: '/analytics'
+  })
+  
+  // Settings - show for all authenticated users
+  items.push({
+    title: 'Settings',
+    icon: 'mdi-cog',
+    to: '/settings'
+  })
   
   return items
 })
@@ -206,10 +205,10 @@ onMounted(async () => {
           />
         </template>
         <v-list>
-          <v-list-item prepend-icon="mdi-account">
+          <v-list-item prepend-icon="mdi-account" @click="router.push('/profile')">
             <v-list-item-title>Profile</v-list-item-title>
           </v-list-item>
-          <v-list-item prepend-icon="mdi-cog">
+          <v-list-item prepend-icon="mdi-cog" @click="router.push('/settings')">
             <v-list-item-title>Settings</v-list-item-title>
           </v-list-item>
           <v-divider />
