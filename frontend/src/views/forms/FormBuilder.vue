@@ -135,10 +135,11 @@ const formId = computed(() => currentForm.value?.id)
 
 // Lifecycle
 onMounted(async () => {
+  // Always initialize schema first
+  formsStore.resetFormSchema()
+  
   if (isEditing.value) {
-    await formsStore.fetchForm(route.params.id as string)
-  } else {
-    formsStore.resetFormSchema()
+    await formsStore.fetchForm(Number(route.params.id))
   }
 })
 

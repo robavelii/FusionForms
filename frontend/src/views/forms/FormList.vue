@@ -7,7 +7,12 @@
             <v-card-title class="d-flex align-center">
               <span>My Forms</span>
               <v-spacer />
-              <v-btn color="primary" prepend-icon="mdi-plus" @click="createNewForm">
+              <v-btn 
+                v-if="canCreateForm"
+                color="primary" 
+                prepend-icon="mdi-plus" 
+                @click="createNewForm"
+              >
                 New Form
               </v-btn>
             </v-card-title>
@@ -29,11 +34,41 @@
                 </template>
 
                 <template #item.actions="{ item }">
-                  <v-btn icon="mdi-pencil" size="small" variant="text" @click.stop="editForm(item.id)" />
-                  <v-btn icon="mdi-eye" size="small" variant="text" @click.stop="previewForm(item.id)" />
-                  <v-btn icon="mdi-chart-bar" size="small" variant="text" @click.stop="viewAnalytics(item.id)" />
-                  <v-btn icon="mdi-content-copy" size="small" variant="text" @click.stop="duplicateFormItem(item.id)" />
-                  <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click.stop="deleteForm(item.id)" />
+                  <v-btn 
+                    v-if="canEditForm"
+                    icon="mdi-pencil" 
+                    size="small" 
+                    variant="text" 
+                    @click.stop="editForm(item.id)" 
+                  />
+                  <v-btn 
+                    icon="mdi-eye" 
+                    size="small" 
+                    variant="text" 
+                    @click.stop="previewForm(item.id)" 
+                  />
+                  <v-btn 
+                    v-if="canViewAnalytics"
+                    icon="mdi-chart-bar" 
+                    size="small" 
+                    variant="text" 
+                    @click.stop="viewAnalytics(item.id)" 
+                  />
+                  <v-btn 
+                    v-if="canDuplicateForm"
+                    icon="mdi-content-copy" 
+                    size="small" 
+                    variant="text" 
+                    @click.stop="duplicateFormItem(item.id)" 
+                  />
+                  <v-btn 
+                    v-if="canDeleteForm"
+                    icon="mdi-delete" 
+                    size="small" 
+                    variant="text" 
+                    color="error" 
+                    @click.stop="deleteForm(item.id)" 
+                  />
                 </template>
               </v-data-table>
             </v-card-text>
@@ -48,6 +83,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFormsStore } from '@/stores/forms'
+import { usePermissions } from '@/composables/usePermissions'
 import type { Form } from '@/types/formTypes'
 
 // Router
@@ -55,6 +91,15 @@ const router = useRouter()
 
 // Pinia store
 const formsStore = useFormsStore()
+
+// Permissions
+const { 
+  canCreateForm, 
+  canEditForm, 
+  canDeleteForm, 
+  canViewAnalytics,
+  canDuplicateForm 
+} = usePermissions()
 
 // Reactive headers
 const headers = ref([

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
+import apiClient from '@/services/api'
 
 // Types for form fields and schema
 export interface FormField {
@@ -101,7 +101,7 @@ export const useFormsStore = defineStore('forms', {
       this.setLoading(true)
       this.setError(null)
       try {
-        const response = await axios.get('/api/forms/')
+        const response = await apiClient.get('/forms/')
         this.setForms(response.data.results)
       } catch (error: any) {
         this.setError(error.message || 'Failed to fetch forms')
@@ -114,7 +114,7 @@ export const useFormsStore = defineStore('forms', {
       this.setLoading(true)
       this.setError(null)
       try {
-        const response = await axios.get(`/api/forms/${id}/`)
+        const response = await apiClient.get(`/forms/${id}/`)
         this.setCurrentForm(response.data)
         this.setFormSchema(response.data.schema)
       } catch (error: any) {
@@ -128,7 +128,7 @@ export const useFormsStore = defineStore('forms', {
       this.setLoading(true)
       this.setError(null)
       try {
-        const response = await axios.post('/api/forms/', formData)
+        const response = await apiClient.post('/forms/', formData)
         this.setCurrentForm(response.data)
         return response.data
       } catch (error: any) {
@@ -143,7 +143,7 @@ export const useFormsStore = defineStore('forms', {
       this.setLoading(true)
       this.setError(null)
       try {
-        const response = await axios.put(`/api/forms/${id}/`, formData)
+        const response = await apiClient.put(`/forms/${id}/`, formData)
         this.setCurrentForm(response.data)
         return response.data
       } catch (error: any) {
@@ -158,7 +158,7 @@ export const useFormsStore = defineStore('forms', {
       this.setLoading(true)
       this.setError(null)
       try {
-        const response = await axios.post(`/api/forms/${id}/publish/`)
+        const response = await apiClient.post(`/forms/${id}/publish/`)
         this.setCurrentForm(response.data)
         return response.data
       } catch (error: any) {
@@ -173,10 +173,25 @@ export const useFormsStore = defineStore('forms', {
       this.setLoading(true)
       this.setError(null)
       try {
-        const response = await axios.post(`/api/forms/${id}/duplicate/`)
+        const response = await apiClient.post(`/forms/${id}/duplicate/`)
         return response.data
       } catch (error: any) {
         this.setError(error.message || 'Failed to duplicate form')
+        throw error
+      } finally {
+        this.setLoading(false)
+      }
+    },
+
+    async deleteForm(id: number) {
+      this.setLoading(true)
+      this.setError(null)
+      try {
+        await apiClient.delete(`/forms/${id}/`)
+        this.forms = this.forms.filter(f => f.id !== id)
+        return true
+      } catch (error: any) {
+        this.setError(error.message || 'Failed to delete form')
         throw error
       } finally {
         this.setLoading(false)

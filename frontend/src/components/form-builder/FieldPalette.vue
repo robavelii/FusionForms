@@ -112,7 +112,9 @@ const layoutFields: Field[] = reactive([
 // Drag event handler
 function onDragStart(event: DragEvent, field: Field) {
   if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'copy'
     event.dataTransfer.setData('application/json', JSON.stringify(field))
+    event.dataTransfer.setData('text/plain', field.label) // Fallback for some browsers
   }
 }
 </script>
@@ -133,18 +135,23 @@ function onDragStart(event: DragEvent, field: Field) {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
+  padding: 12px;
+  background: rgba(var(--v-theme-surface-variant), 1);
+  border: 2px solid rgba(var(--v-theme-primary), 0.2);
+  border-radius: 8px;
   cursor: grab;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
+  user-select: none;
 }
 
 .field-item:hover {
-  background-color: #f5f5f5;
+  background: rgba(var(--v-theme-primary), 0.1);
+  border-color: rgba(var(--v-theme-primary), 0.4);
+  transform: translateX(4px);
 }
 
 .field-item:active {
   cursor: grabbing;
+  opacity: 0.6;
 }
 </style>

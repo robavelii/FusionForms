@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
+import apiClient from '@/services/api'
 
 // Types
 export interface Submission {
@@ -52,7 +52,7 @@ export const useSubmissionsStore = defineStore('submissions', {
       this.setLoading(true)
       this.setError(null)
       try {
-        const response = await axios.get(`/api/submissions/?form_id=${formId}`)
+        const response = await apiClient.get(`/submissions/?form_id=${formId}`)
         this.setSubmissions(response.data.results)
       } catch (error: any) {
         this.setError(error.message || 'Failed to fetch submissions')
@@ -65,7 +65,7 @@ export const useSubmissionsStore = defineStore('submissions', {
       this.setLoading(true)
       this.setError(null)
       try {
-        const response = await axios.get(`/api/submissions/${id}/`)
+        const response = await apiClient.get(`/submissions/${id}/`)
         this.setCurrentSubmission(response.data)
       } catch (error: any) {
         this.setError(error.message || 'Failed to fetch submission')
@@ -78,7 +78,7 @@ export const useSubmissionsStore = defineStore('submissions', {
       this.setLoading(true)
       this.setError(null)
       try {
-        const response = await axios.post('/api/submissions/', submissionData)
+        const response = await apiClient.post('/submissions/', submissionData)
         return response.data
       } catch (error: any) {
         this.setError(error.message || 'Failed to create submission')

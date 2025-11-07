@@ -1,13 +1,27 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
+import apiClient from '@/services/api'
 
 // Define types for the user and state
 interface User {
   id: number
   username: string
   email: string
+  first_name?: string
+  last_name?: string
   role?: string
+  organization?: string
   [key: string]: any
+}
+
+interface RegisterData {
+  username: string
+  email: string
+  password: string
+  password_confirm: string
+  first_name?: string
+  last_name?: string
+  role?: string
+  organization?: string
 }
 
 interface AuthState {
@@ -31,15 +45,13 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    async login(userCredentials: { username: string; password: string }) {
+    async login(userCredentials: { email: string; password: string }) {
       this.status = 'loading'
       try {
-        const response = await axios.post('/api/accounts/login/', userCredentials)
+        const response = await apiClient.post('/accounts/login/', userCredentials)
         const { token, user } = response.data
 
         localStorage.setItem('token', token)
-        axios.defaults.headers.common['Authorization'] = `Token ${token}`
-
         this.token = token
         this.user = user
         this.status = 'success'
@@ -52,15 +64,13 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    async register(userData: { username: string; email: string; password: string }) {
+    async register(userData: RegisterData) {
       this.status = 'loading'
       try {
-        const response = await axios.post('/api/accounts/register/', userData)
+        const response = await apiClient.post('/accounts/register/', userData)
         const { token, user } = response.data
 
         localStorage.setItem('token', token)
-        axios.defaults.headers.common['Authorization'] = `Token ${token}`
-
         this.token = token
         this.user = user
         this.status = 'success'
@@ -78,12 +88,11 @@ export const useAuthStore = defineStore('auth', {
       this.token = ''
       this.status = 'idle'
       localStorage.removeItem('token')
-      delete axios.defaults.headers.common['Authorization']
     },
 
     async fetchProfile() {
       try {
-        const response = await axios.get('/api/accounts/profile/')
+        const response = await apiClient.get('/accounts/profile/')
         this.user = response.data
         return response
       } catch (err) {

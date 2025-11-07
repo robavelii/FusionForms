@@ -2,19 +2,22 @@
   <div class="form-canvas">
     <v-card>
       <v-card-title class="text-h6">
-        {{ formSchema.title || 'Untitled Form' }}
+        {{ formSchema?.title || 'Untitled Form' }}
       </v-card-title>
-      <v-card-subtitle v-if="formSchema.description">
+      <v-card-subtitle v-if="formSchema?.description">
         {{ formSchema.description }}
       </v-card-subtitle>
       <v-card-text>
         <div
           class="form-fields"
+          :class="{ 'drag-over': isDraggingOver }"
           @drop="onDrop"
-          @dragover.prevent
-          @dragenter.prevent
+          @dragover.prevent="onDragOver"
+          @dragenter.prevent="onDragEnter"
+          @dragleave="onDragLeave"
         >
           <draggable
+            v-if="formSchema && formSchema.fields"
             v-model="formSchema.fields"
             group="formFields"
             item-key="id"
@@ -55,7 +58,7 @@
             </template>
           </draggable>
 
-          <div v-if="formSchema.fields.length === 0" class="empty-state">
+          <div v-if="!formSchema || !formSchema.fields || formSchema.fields.length === 0" class="empty-state">
             <v-icon size="48">mdi-drag</v-icon>
             <p>Drag fields here to start building your form</p>
           </div>
@@ -66,7 +69,7 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import draggable from 'vuedraggable'
 
 import FieldText from './fields/FieldText.vue'
@@ -106,7 +109,7 @@ interface FormSchema {
 
 /* ----------------- PROPS ----------------- */
 const props = defineProps<{
-  formSchema: FormSchema
+  formSchema?: FormSchema | null
   selectedFieldIndex: number
 }>()
 
@@ -114,6 +117,9 @@ const emit = defineEmits<{
   (e: 'update:formSchema', value: FormSchema): void
   (e: 'selectField', index: number): void
 }>()
+
+/* ----------------- STATE ----------------- */
+const isDraggingOver = ref(false)
 
 /* ----------------- METHODS ----------------- */
 function getFieldComponent(type: string) {
@@ -166,27 +172,79 @@ function getDefaultOptions(type: string) {
   return defaultOptions[type] || {}
 }
 
+function onDragOver(event: DragEvent) {
+  event.preventDefault()
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'copy'
+  }
+}
+
+function onDragEnter(event: DragEvent) {
+  event.preventDefault()
+  isDraggingOver.value = true
+}
+
+function onDragLeave(event: DragEvent) {
+  // Only set to false if leaving the drop zone, not a child element
+  const target = event.target as HTMLElement
+  const relatedTarget = event.relatedTarget as HTMLElement
+  if (!target.contains(relatedTarget)) {
+    isDraggingOver.value = false
+  }
+}
+
 function onDrop(event: DragEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  isDraggingOver.value = false
+  
   try {
-    if (!event.dataTransfer) return
-    const fieldData = JSON.parse(event.dataTransfer.getData('application/json'))
+    if (!event.dataTransfer) {
+      console.error('No dataTransfer in drop event')
+      return
+    }
+    
+    if (!props.formSchema) {
+      console.error('No formSchema available')
+      return
+    }
+    
+    const fieldDataStr = event.dataTransfer.getData('application/json')
+    if (!fieldDataStr) {
+      console.error('No data in drop event')
+      return
+    }
+    
+    const fieldData = JSON.parse(fieldDataStr)
+    console.log('Dropping field:', fieldData)
+    
     const newField: Field = reactive({
-      id: `field_${Date.now()}`,
+      id: `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type: fieldData.type,
       label: fieldData.label,
       required: false,
       options: getDefaultOptions(fieldData.type)
     })
+    
+    // Ensure fields array exists
+    if (!props.formSchema.fields) {
+      props.formSchema.fields = []
+    }
+    
     props.formSchema.fields.push(newField)
     emit('update:formSchema', props.formSchema)
     selectField(props.formSchema.fields.length - 1)
+    
+    console.log('Field added successfully', newField)
   } catch (error) {
-    console.error('Error parsing field data:', error)
+    console.error('Error in onDrop:', error)
   }
 }
 
 function onFieldChange() {
-  emit('update:formSchema', props.formSchema)
+  if (props.formSchema) {
+    emit('update:formSchema', props.formSchema)
+  }
 }
 
 function selectField(index: number) {
@@ -194,11 +252,14 @@ function selectField(index: number) {
 }
 
 function updateField(index: number, field: Field) {
-  props.formSchema.fields.splice(index, 1, field)
-  emit('update:formSchema', props.formSchema)
+  if (props.formSchema) {
+    props.formSchema.fields.splice(index, 1, field)
+    emit('update:formSchema', props.formSchema)
+  }
 }
 
 function duplicateField(index: number) {
+  if (!props.formSchema) return
   const field = { ...props.formSchema.fields[index] }
   field.id = `field_${Date.now()}`
   props.formSchema.fields.splice(index + 1, 0, field)
@@ -207,6 +268,7 @@ function duplicateField(index: number) {
 }
 
 function removeField(index: number) {
+  if (!props.formSchema) return
   props.formSchema.fields.splice(index, 1)
   emit('update:formSchema', props.formSchema)
   if (props.selectedFieldIndex === index) {
@@ -225,31 +287,44 @@ function removeField(index: number) {
 
 .form-fields {
   min-height: 400px;
-  border: 2px dashed #e0e0e0;
-  border-radius: 4px;
+  border: 2px dashed rgba(var(--v-theme-primary), 0.3);
+  border-radius: 12px;
   padding: 16px;
-  transition: border-color 0.2s;
+  transition: all 0.3s ease;
+  background: rgba(var(--v-theme-surface), 0.5);
 }
 
 .form-fields:hover {
-  border-color: #bdbdbd;
+  border-color: rgba(var(--v-theme-primary), 0.5);
+  background: rgba(var(--v-theme-surface-variant), 0.3);
+}
+
+.form-fields.drag-over {
+  border-color: rgb(var(--v-theme-primary));
+  border-width: 3px;
+  background: rgba(var(--v-theme-primary), 0.08);
+  box-shadow: inset 0 0 20px rgba(var(--v-theme-primary), 0.15);
 }
 
 .form-field {
   position: relative;
   margin-bottom: 16px;
-  padding: 8px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  cursor: pointer;
 }
 
 .form-field:hover {
-  background-color: #f5f5f5;
+  background: rgba(var(--v-theme-surface-variant), 0.5);
+  border-color: rgba(var(--v-theme-primary), 0.2);
 }
 
 .form-field.selected {
-  background-color: #e3f2fd;
-  border: 1px solid #2196f3;
+  background: rgba(var(--v-theme-primary), 0.08);
+  border: 2px solid rgb(var(--v-theme-primary));
+  box-shadow: 0 2px 8px rgba(var(--v-theme-primary), 0.2);
 }
 
 .field-menu {
@@ -270,11 +345,17 @@ function removeField(index: number) {
   align-items: center;
   justify-content: center;
   height: 300px;
-  color: #9e9e9e;
+  color: rgba(var(--v-theme-on-surface), 0.4);
   text-align: center;
+}
+
+.empty-state v-icon {
+  color: rgba(var(--v-theme-primary), 0.3);
 }
 
 .empty-state p {
   margin-top: 16px;
+  font-size: 1.1rem;
+  font-weight: 500;
 }
 </style>

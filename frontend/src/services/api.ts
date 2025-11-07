@@ -1,10 +1,10 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios'
+import axios from 'axios'
 
 // Base URL (Vite environment variable)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
 // Create Axios instance
-const apiClient: AxiosInstance = axios.create({
+const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json'
@@ -13,20 +13,20 @@ const apiClient: AxiosInstance = axios.create({
 
 // Request interceptor to include auth token
 apiClient.interceptors.request.use(
-  (config: AxiosRequestConfig) => {
+  (config) => {
     const token = localStorage.getItem('token')
     if (token && config.headers) {
-      config.headers['Authorization'] = `Token ${token}`
+      config.headers.Authorization = `Token ${token}`
     }
     return config
   },
-  (error: any) => Promise.reject(error)
+  (error) => Promise.reject(error)
 )
 
 // Response interceptor to handle 401 errors
 apiClient.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
+  (error) => {
     if (error.response?.status === 401) {
       // Token expired or invalid
       localStorage.removeItem('token')
